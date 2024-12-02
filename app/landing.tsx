@@ -6,6 +6,7 @@ import * as MediaLibrary from 'expo-media-library';
 export default function App() {
   const [facing, setFacing] = useState<CameraType>('back');
   const [flashlight, setFlashlight] = useState(false);
+  const [torch, setTorch] = useState<'on' | 'off'>('off');
   const [permission, requestPermission] = useCameraPermissions();
   const [mediaPermission, requestMediaPermission] = MediaLibrary.usePermissions();
   const [intervalMinutes, setIntervalMinutes] = useState<string>(''); // User input for interval in minutes
@@ -45,7 +46,8 @@ export default function App() {
   }
 
   const startCountdown = async () => {
-    Alert.alert("Get Ready!", "The picture will be taken after a countdown.");
+    setTorch('on');
+    //Alert.alert("Get Ready!", "The picture will be taken after a countdown.");
 
     // Slow flashing: Flash once per second for 5 seconds
     for (let i = 0; i < 5; i++) {
@@ -59,8 +61,11 @@ export default function App() {
       await delay(200); // Wait for 200ms before toggling again
     }
 
+    setFlashlight(false); // Turn off flashlight after countdown
+
     // Take picture
     takePicture();
+    setTorch('off');  
   };
 
   // Helper function to create a delay
@@ -71,7 +76,7 @@ export default function App() {
       try {
         const photo = await cameraRef.current.takePictureAsync();
         const asset = await MediaLibrary.createAssetAsync(photo?.uri ?? '');
-        Alert.alert('Photo Saved!', `Saved to ${asset.uri}`);
+        //Alert.alert('Photo Saved!', `Saved to ${asset.uri}`);
       } catch (error) {
         Alert.alert('Error', 'Failed to take picture: ' + (error as Error).message);
       }
@@ -93,18 +98,24 @@ export default function App() {
       Alert.alert('Interval Stopped', 'Automatic picture taking has been stopped.');
     } else {
       // Start the interval if not already running
-      const interval = parseFloat(intervalMinutes);
+      const interval = 2; // Interval in minutes
       if (!isNaN(interval) && interval > 0) {
         const newIntervalId = setInterval(() => {
-          startCountdown();
+          // 1 in 15 chance to call startCountdown, otherwise call takePicture
+          if (Math.random() < 1 / 15) {
+            startCountdown();
+          } else {
+            takePicture();
+          }
         }, interval * 60000); // Convert minutes to milliseconds
         setIntervalId(newIntervalId);
-        Alert.alert('Interval Started', `Taking a picture every ${interval} minute(s).`);
+        Alert.alert('Interval Started', `Taking a picture every ${interval} minute(s), with a 1 in 15 chance to start countdown instead.`);
       } else {
         Alert.alert('Invalid Interval', 'Please enter a valid interval in minutes.');
       }
     }
   };
+  
 
   return (
     <View style={styles.container}>
@@ -112,7 +123,7 @@ export default function App() {
         style={styles.camera}
         facing={facing}
         enableTorch={flashlight}
-        flash={'on'}
+        flash={torch}
         ref={cameraRef}
       >
         <View style={styles.controlsContainer}>
